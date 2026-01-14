@@ -33,53 +33,56 @@ digraph when_to_use {
 
 ## Core Pattern
 
-```typescript
+```csharp
 // ❌ BEFORE: Guessing at timing
-await new Promise(r => setTimeout(r, 50));
-const result = getResult();
-expect(result).toBeDefined();
+await Task.Delay(50);
+var result = GetResult();
+Assert.NotNull(result);
 
 // ✅ AFTER: Waiting for condition
-await waitFor(() => getResult() !== undefined);
-const result = getResult();
-expect(result).toBeDefined();
+await WaitForAsync(() => GetResult() != null);
+var result = GetResult();
+Assert.NotNull(result);
 ```
 
 ## Quick Patterns
 
 | Scenario | Pattern |
 |----------|---------|
-| Wait for event | `waitFor(() => events.find(e => e.type === 'DONE'))` |
-| Wait for state | `waitFor(() => machine.state === 'ready')` |
-| Wait for count | `waitFor(() => items.length >= 5)` |
-| Wait for file | `waitFor(() => fs.existsSync(path))` |
-| Complex condition | `waitFor(() => obj.ready && obj.value > 10)` |
+| Wait for event | `WaitForAsync(() => events.Any(e => e.Type == "DONE"))` |
+| Wait for state | `WaitForAsync(() => machine.State == "ready")` |
+| Wait for count | `WaitForAsync(() => items.Count >= 5)` |
+| Wait for file | `WaitForAsync(() => File.Exists(path))` |
+| Complex condition | `WaitForAsync(() => obj.Ready && obj.Value > 10)` |
 
 ## Implementation
 
 Generic polling function:
-```typescript
-async function waitFor<T>(
-  condition: () => T | undefined | null | false,
-  description: string,
-  timeoutMs = 5000
-): Promise<T> {
-  const startTime = Date.now();
+```csharp
+public static async Task<T> WaitForAsync<T>(
+    Func<T?> condition,
+    string description,
+    int timeoutMs = 5000)
+    where T : class
+{
+    var startTime = DateTime.UtcNow;
 
-  while (true) {
-    const result = condition();
-    if (result) return result;
+    while (true)
+    {
+        var result = condition();
+        if (result != null) return result;
 
-    if (Date.now() - startTime > timeoutMs) {
-      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+        if ((DateTime.UtcNow - startTime).TotalMilliseconds > timeoutMs)
+        {
+            throw new TimeoutException($"Timeout waiting for {description} after {timeoutMs}ms");
+        }
+
+        await Task.Delay(10); // Poll every 10ms
     }
-
-    await new Promise(r => setTimeout(r, 10)); // Poll every 10ms
-  }
 }
 ```
 
-See `condition-based-waiting-example.ts` in this directory for complete implementation with domain-specific helpers (`waitForEvent`, `waitForEventCount`, `waitForEventMatch`) from actual debugging session.
+See `ConditionBasedWaitingExample.cs` in this directory for complete implementation with domain-specific helpers (`WaitForEventAsync`, `WaitForEventCountAsync`, `WaitForEventMatchAsync`) from actual debugging session.
 
 ## Common Mistakes
 
@@ -94,10 +97,10 @@ See `condition-based-waiting-example.ts` in this directory for complete implemen
 
 ## When Arbitrary Timeout IS Correct
 
-```typescript
+```csharp
 // Tool ticks every 100ms - need 2 ticks to verify partial output
-await waitForEvent(manager, 'TOOL_STARTED'); // First: wait for condition
-await new Promise(r => setTimeout(r, 200));   // Then: wait for timed behavior
+await WaitForEventAsync(manager, "TOOL_STARTED"); // First: wait for condition
+await Task.Delay(200);   // Then: wait for timed behavior
 // 200ms = 2 ticks at 100ms intervals - documented and justified
 ```
 

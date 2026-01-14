@@ -38,16 +38,16 @@ Error: git init failed in /Users/jesse/project/packages/core
 
 ### 2. Find Immediate Cause
 **What code directly causes this?**
-```typescript
-await execFileAsync('git', ['init'], { cwd: projectDir });
+```csharp
+await ProcessHelper.RunAsync("git", new[] { "init" }, workingDirectory: projectDir);
 ```
 
 ### 3. Ask: What Called This?
-```typescript
-WorktreeManager.createSessionWorktree(projectDir, sessionId)
-  → called by Session.initializeWorkspace()
-  → called by Session.create()
-  → called by test at Project.create()
+```csharp
+WorktreeManager.CreateSessionWorktree(projectDir, sessionId)
+  → called by Session.InitializeWorkspace()
+  → called by Session.Create()
+  → called by test at Project.Create()
 ```
 
 ### 4. Keep Tracing Up
@@ -58,27 +58,26 @@ WorktreeManager.createSessionWorktree(projectDir, sessionId)
 
 ### 5. Find Original Trigger
 **Where did empty string come from?**
-```typescript
-const context = setupCoreTest(); // Returns { tempDir: '' }
-Project.create('name', context.tempDir); // Accessed before beforeEach!
+```csharp
+var context = SetupCoreTest(); // Returns new TestContext { TempDir = "" }
+Project.Create("name", context.TempDir); // Accessed before SetUp!
 ```
 
 ## Adding Stack Traces
 
 When you can't trace manually, add instrumentation:
 
-```typescript
+```csharp
 // Before the problematic operation
-async function gitInit(directory: string) {
-  const stack = new Error().stack;
-  console.error('DEBUG git init:', {
-    directory,
-    cwd: process.cwd(),
-    nodeEnv: process.env.NODE_ENV,
-    stack,
-  });
+public async Task GitInitAsync(string directory)
+{
+    var stackTrace = Environment.StackTrace;
+    Console.Error.WriteLine($"DEBUG git init: Directory={directory}, " +
+        $"Cwd={Environment.CurrentDirectory}, " +
+        $"DotNetEnv={Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")}");
+    Console.Error.WriteLine(stackTrace);
 
-  await execFileAsync('git', ['init'], { cwd: directory });
+    await ProcessHelper.RunAsync("git", new[] { "init" }, workingDirectory: directory);
 }
 ```
 
@@ -86,7 +85,7 @@ async function gitInit(directory: string) {
 
 **Run and capture:**
 ```bash
-npm test 2>&1 | grep 'DEBUG git init'
+dotnet test 2>&1 | grep 'DEBUG git init'
 ```
 
 **Analyze stack traces:**

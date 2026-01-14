@@ -73,34 +73,40 @@ digraph tdd_cycle {
 Write one minimal test showing what should happen.
 
 <Good>
-```typescript
-test('retries failed operations 3 times', async () => {
-  let attempts = 0;
-  const operation = () => {
-    attempts++;
-    if (attempts < 3) throw new Error('fail');
-    return 'success';
-  };
+```csharp
+[Fact]
+public async Task RetryOperation_WhenFailsTwice_RetriesThreeTimes()
+{
+    var attempts = 0;
+    Func<Task<string>> operation = async () =>
+    {
+        attempts++;
+        if (attempts < 3) throw new Exception("fail");
+        return "success";
+    };
 
-  const result = await retryOperation(operation);
+    var result = await RetryOperation(operation);
 
-  expect(result).toBe('success');
-  expect(attempts).toBe(3);
-});
+    Assert.Equal("success", result);
+    Assert.Equal(3, attempts);
+}
 ```
 Clear name, tests real behavior, one thing
 </Good>
 
 <Bad>
-```typescript
-test('retry works', async () => {
-  const mock = jest.fn()
-    .mockRejectedValueOnce(new Error())
-    .mockRejectedValueOnce(new Error())
-    .mockResolvedValueOnce('success');
-  await retryOperation(mock);
-  expect(mock).toHaveBeenCalledTimes(3);
-});
+```csharp
+[Fact]
+public async Task RetryWorks()
+{
+    var mock = new Mock<IOperation>();
+    mock.SetupSequence(x => x.ExecuteAsync())
+        .ThrowsAsync(new Exception())
+        .ThrowsAsync(new Exception())
+        .ReturnsAsync("success");
+    await RetryOperation(mock.Object.ExecuteAsync);
+    mock.Verify(x => x.ExecuteAsync(), Times.Exactly(3));
+}
 ```
 Vague name, tests mock not code
 </Bad>
@@ -115,7 +121,7 @@ Vague name, tests mock not code
 **MANDATORY. Never skip.**
 
 ```bash
-npm test path/to/test.test.ts
+dotnet test --filter "FullyQualifiedName~RetryOperation"
 ```
 
 Confirm:
@@ -132,32 +138,36 @@ Confirm:
 Write simplest code to pass the test.
 
 <Good>
-```typescript
-async function retryOperation<T>(fn: () => Promise<T>): Promise<T> {
-  for (let i = 0; i < 3; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (i === 2) throw e;
+```csharp
+public async Task<T> RetryOperation<T>(Func<Task<T>> fn)
+{
+    for (var i = 0; i < 3; i++)
+    {
+        try
+        {
+            return await fn();
+        }
+        catch when (i < 2)
+        {
+            // Retry on next iteration
+        }
     }
-  }
-  throw new Error('unreachable');
+    throw new InvalidOperationException("unreachable");
 }
 ```
 Just enough to pass
 </Good>
 
 <Bad>
-```typescript
-async function retryOperation<T>(
-  fn: () => Promise<T>,
-  options?: {
-    maxRetries?: number;
-    backoff?: 'linear' | 'exponential';
-    onRetry?: (attempt: number) => void;
-  }
-): Promise<T> {
-  // YAGNI
+```csharp
+public async Task<T> RetryOperation<T>(
+    Func<Task<T>> fn,
+    RetryOptions? options = null)
+{
+    // YAGNI - options include:
+    // int MaxRetries
+    // BackoffStrategy Backoff (Linear | Exponential)
+    // Action<int>? OnRetry
 }
 ```
 Over-engineered
@@ -170,7 +180,7 @@ Don't add features, refactor other code, or "improve" beyond the test.
 **MANDATORY.**
 
 ```bash
-npm test path/to/test.test.ts
+dotnet test --filter "FullyQualifiedName~RetryOperation"
 ```
 
 Confirm:
@@ -292,32 +302,36 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 **Bug:** Empty email accepted
 
 **RED**
-```typescript
-test('rejects empty email', async () => {
-  const result = await submitForm({ email: '' });
-  expect(result.error).toBe('Email required');
-});
+```csharp
+[Fact]
+public async Task SubmitForm_WithEmptyEmail_ReturnsError()
+{
+    var result = await SubmitForm(new FormData { Email = "" });
+    Assert.Equal("Email required", result.Error);
+}
 ```
 
 **Verify RED**
 ```bash
-$ npm test
-FAIL: expected 'Email required', got undefined
+$ dotnet test
+FAIL: Assert.Equal() Failure - Expected: "Email required", Actual: null
 ```
 
 **GREEN**
-```typescript
-function submitForm(data: FormData) {
-  if (!data.email?.trim()) {
-    return { error: 'Email required' };
-  }
-  // ...
+```csharp
+public FormResult SubmitForm(FormData data)
+{
+    if (string.IsNullOrWhiteSpace(data.Email))
+    {
+        return new FormResult { Error = "Email required" };
+    }
+    // ...
 }
 ```
 
 **Verify GREEN**
 ```bash
-$ npm test
+$ dotnet test
 PASS
 ```
 

@@ -39,7 +39,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Architecture:** [2-3 sentences about approach]
 
-**Tech Stack:** [Key technologies/libraries]
+**Tech Stack:** C# / .NET 9 / Entity Framework (Code First) / PostgreSQL / WPF
 
 ---
 ```
@@ -50,39 +50,44 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 ### Task N: [Component Name]
 
 **Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
+- Create: `Exact/Path/To/File.cs`
+- Modify: `Exact/Path/To/Existing.cs:123-145`
+- Test: `Tests/Exact/Path/FileTests.cs`
 
 **Step 1: Write the failing test**
 
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
+```csharp
+[Fact]
+public void SpecificBehavior_WhenCalled_ReturnsExpected()
+{
+    var result = _sut.Function(input);
+    Assert.Equal(expected, result);
+}
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
+Run: `dotnet test --filter "FullyQualifiedName~SpecificBehavior"`
+Expected: FAIL with "does not contain a definition"
 
 **Step 3: Write minimal implementation**
 
-```python
-def function(input):
-    return expected
+```csharp
+public TResult Function(TInput input)
+{
+    return expected;
+}
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/path/test.py::test_name -v`
+Run: `dotnet test --filter "FullyQualifiedName~SpecificBehavior"`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add tests/path/test.py src/path/file.py
+git add Tests/Path/FileTests.cs Src/Path/File.cs
 git commit -m "feat: add specific feature"
 ```
 ```

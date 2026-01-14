@@ -326,9 +326,9 @@ See @graphviz-conventions.dot for graphviz style rules.
 **One excellent example beats many mediocre ones**
 
 Choose most relevant language:
-- Testing techniques → TypeScript/JavaScript
-- System debugging → Shell/Python
-- Data processing → Python
+- Testing techniques → C# / xUnit
+- System debugging → Shell / C#
+- Data processing → C# / LINQ
 
 **Good example:**
 - Complete and runnable

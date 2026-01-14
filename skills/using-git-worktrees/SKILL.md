@@ -103,18 +103,8 @@ cd "$path"
 Auto-detect and run appropriate setup:
 
 ```bash
-# Node.js
-if [ -f package.json ]; then npm install; fi
-
-# Rust
-if [ -f Cargo.toml ]; then cargo build; fi
-
-# Python
-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-if [ -f pyproject.toml ]; then poetry install; fi
-
-# Go
-if [ -f go.mod ]; then go mod download; fi
+# .NET
+if [ -f *.sln ] || [ -f *.csproj ]; then dotnet restore; fi
 ```
 
 ### 4. Verify Clean Baseline
@@ -122,11 +112,8 @@ if [ -f go.mod ]; then go mod download; fi
 Run tests to ensure worktree starts clean:
 
 ```bash
-# Examples - use project-appropriate command
-npm test
-cargo test
-pytest
-go test ./...
+# Use dotnet test for .NET projects
+dotnet test
 ```
 
 **If tests fail:** Report failures, ask whether to proceed or investigate.

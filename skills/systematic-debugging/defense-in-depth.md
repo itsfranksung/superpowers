@@ -22,65 +22,70 @@ Different layers catch different cases:
 ### Layer 1: Entry Point Validation
 **Purpose:** Reject obviously invalid input at API boundary
 
-```typescript
-function createProject(name: string, workingDirectory: string) {
-  if (!workingDirectory || workingDirectory.trim() === '') {
-    throw new Error('workingDirectory cannot be empty');
-  }
-  if (!existsSync(workingDirectory)) {
-    throw new Error(`workingDirectory does not exist: ${workingDirectory}`);
-  }
-  if (!statSync(workingDirectory).isDirectory()) {
-    throw new Error(`workingDirectory is not a directory: ${workingDirectory}`);
-  }
-  // ... proceed
+```csharp
+public void CreateProject(string name, string workingDirectory)
+{
+    if (string.IsNullOrWhiteSpace(workingDirectory))
+    {
+        throw new ArgumentException("workingDirectory cannot be empty");
+    }
+    if (!Directory.Exists(workingDirectory))
+    {
+        throw new ArgumentException($"workingDirectory does not exist: {workingDirectory}");
+    }
+    // ... proceed
 }
 ```
 
 ### Layer 2: Business Logic Validation
 **Purpose:** Ensure data makes sense for this operation
 
-```typescript
-function initializeWorkspace(projectDir: string, sessionId: string) {
-  if (!projectDir) {
-    throw new Error('projectDir required for workspace initialization');
-  }
-  // ... proceed
+```csharp
+public void InitializeWorkspace(string projectDir, string sessionId)
+{
+    if (string.IsNullOrEmpty(projectDir))
+    {
+        throw new ArgumentException("projectDir required for workspace initialization");
+    }
+    // ... proceed
 }
 ```
 
 ### Layer 3: Environment Guards
 **Purpose:** Prevent dangerous operations in specific contexts
 
-```typescript
-async function gitInit(directory: string) {
-  // In tests, refuse git init outside temp directories
-  if (process.env.NODE_ENV === 'test') {
-    const normalized = normalize(resolve(directory));
-    const tmpDir = normalize(resolve(tmpdir()));
+```csharp
+public async Task GitInitAsync(string directory)
+{
+    // In tests, refuse git init outside temp directories
+    var env = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+    if (env == "Test")
+    {
+        var normalized = Path.GetFullPath(directory);
+        var tmpDir = Path.GetFullPath(Path.GetTempPath());
 
-    if (!normalized.startsWith(tmpDir)) {
-      throw new Error(
-        `Refusing git init outside temp dir during tests: ${directory}`
-      );
+        if (!normalized.StartsWith(tmpDir))
+        {
+            throw new InvalidOperationException(
+                $"Refusing git init outside temp dir during tests: {directory}");
+        }
     }
-  }
-  // ... proceed
+    // ... proceed
 }
 ```
 
 ### Layer 4: Debug Instrumentation
 **Purpose:** Capture context for forensics
 
-```typescript
-async function gitInit(directory: string) {
-  const stack = new Error().stack;
-  logger.debug('About to git init', {
-    directory,
-    cwd: process.cwd(),
-    stack,
-  });
-  // ... proceed
+```csharp
+public async Task GitInitAsync(string directory)
+{
+    var stackTrace = Environment.StackTrace;
+    _logger.LogDebug("About to git init: {Directory}, Cwd: {Cwd}",
+        directory,
+        Environment.CurrentDirectory);
+    _logger.LogDebug("Stack trace: {StackTrace}", stackTrace);
+    // ... proceed
 }
 ```
 

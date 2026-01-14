@@ -21,12 +21,14 @@ Tests must verify real behavior, not mock behavior. Mocks are a means to isolate
 ## Anti-Pattern 1: Testing Mock Behavior
 
 **The violation:**
-```typescript
+```csharp
 // ❌ BAD: Testing that the mock exists
-test('renders sidebar', () => {
-  render(<Page />);
-  expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
-});
+[Fact]
+public void RendersPage_SidebarMockPresent()
+{
+    var component = RenderComponent<Page>();
+    Assert.NotNull(component.FindByTestId("sidebar-mock"));
+}
 ```
 
 **Why this is wrong:**
@@ -37,12 +39,14 @@ test('renders sidebar', () => {
 **your human partner's correction:** "Are we testing the behavior of a mock?"
 
 **The fix:**
-```typescript
+```csharp
 // ✅ GOOD: Test real component or don't mock it
-test('renders sidebar', () => {
-  render(<Page />);  // Don't mock sidebar
-  expect(screen.getByRole('navigation')).toBeInTheDocument();
-});
+[Fact]
+public void RendersPage_NavigationPresent()
+{
+    var component = RenderComponent<Page>();  // Don't mock sidebar
+    Assert.NotNull(component.FindByRole("navigation"));
+}
 
 // OR if sidebar must be mocked for isolation:
 // Don't assert on the mock - test Page's behavior with sidebar present
@@ -63,17 +67,22 @@ BEFORE asserting on any mock element:
 ## Anti-Pattern 2: Test-Only Methods in Production
 
 **The violation:**
-```typescript
-// ❌ BAD: destroy() only used in tests
-class Session {
-  async destroy() {  // Looks like production API!
-    await this._workspaceManager?.destroyWorkspace(this.id);
-    // ... cleanup
-  }
+```csharp
+// ❌ BAD: Destroy() only used in tests
+public class Session
+{
+    public async Task DestroyAsync()  // Looks like production API!
+    {
+        await _workspaceManager?.DestroyWorkspaceAsync(Id);
+        // ... cleanup
+    }
 }
 
 // In tests
-afterEach(() => session.destroy());
+public class SessionTests : IAsyncLifetime
+{
+    public async Task DisposeAsync() => await _session.DestroyAsync();
+}
 ```
 
 **Why this is wrong:**
@@ -83,20 +92,25 @@ afterEach(() => session.destroy());
 - Confuses object lifecycle with entity lifecycle
 
 **The fix:**
-```typescript
+```csharp
 // ✅ GOOD: Test utilities handle test cleanup
-// Session has no destroy() - it's stateless in production
+// Session has no Destroy() - it's stateless in production
 
-// In test-utils/
-export async function cleanupSession(session: Session) {
-  const workspace = session.getWorkspaceInfo();
-  if (workspace) {
-    await workspaceManager.destroyWorkspace(workspace.id);
-  }
+// In TestUtilities/
+public static class SessionTestHelper
+{
+    public static async Task CleanupSessionAsync(Session session)
+    {
+        var workspace = session.GetWorkspaceInfo();
+        if (workspace != null)
+        {
+            await WorkspaceManager.DestroyWorkspaceAsync(workspace.Id);
+        }
+    }
 }
 
 // In tests
-afterEach(() => cleanupSession(session));
+public async Task DisposeAsync() => await SessionTestHelper.CleanupSessionAsync(_session);
 ```
 
 ### Gate Function
@@ -118,17 +132,19 @@ BEFORE adding any method to production class:
 ## Anti-Pattern 3: Mocking Without Understanding
 
 **The violation:**
-```typescript
+```csharp
 // ❌ BAD: Mock breaks test logic
-test('detects duplicate server', () => {
-  // Mock prevents config write that test depends on!
-  vi.mock('ToolCatalog', () => ({
-    discoverAndCacheTools: vi.fn().mockResolvedValue(undefined)
-  }));
+[Fact]
+public async Task DetectsDuplicateServer()
+{
+    // Mock prevents config write that test depends on!
+    var mockToolCatalog = new Mock<IToolCatalog>();
+    mockToolCatalog.Setup(x => x.DiscoverAndCacheToolsAsync())
+        .ReturnsAsync((Unit?)null);
 
-  await addServer(config);
-  await addServer(config);  // Should throw - but won't!
-});
+    await AddServer(config);
+    await AddServer(config);  // Should throw - but won't!
+}
 ```
 
 **Why this is wrong:**
@@ -137,15 +153,17 @@ test('detects duplicate server', () => {
 - Test passes for wrong reason or fails mysteriously
 
 **The fix:**
-```typescript
+```csharp
 // ✅ GOOD: Mock at correct level
-test('detects duplicate server', () => {
-  // Mock the slow part, preserve behavior test needs
-  vi.mock('MCPServerManager'); // Just mock slow server startup
+[Fact]
+public async Task DetectsDuplicateServer()
+{
+    // Mock the slow part, preserve behavior test needs
+    var mockServerManager = new Mock<IMcpServerManager>(); // Just mock slow server startup
 
-  await addServer(config);  // Config written
-  await addServer(config);  // Duplicate detected ✓
-});
+    await AddServer(config);  // Config written
+    await AddServer(config);  // Duplicate detected ✓
+}
 ```
 
 ### Gate Function
@@ -177,15 +195,16 @@ BEFORE mocking any method:
 ## Anti-Pattern 4: Incomplete Mocks
 
 **The violation:**
-```typescript
+```csharp
 // ❌ BAD: Partial mock - only fields you think you need
-const mockResponse = {
-  status: 'success',
-  data: { userId: '123', name: 'Alice' }
-  // Missing: metadata that downstream code uses
+var mockResponse = new ApiResponse
+{
+    Status = "success",
+    Data = new UserData { UserId = "123", Name = "Alice" }
+    // Missing: Metadata that downstream code uses
 };
 
-// Later: breaks when code accesses response.metadata.requestId
+// Later: breaks when code accesses response.Metadata.RequestId
 ```
 
 **Why this is wrong:**
@@ -197,13 +216,14 @@ const mockResponse = {
 **The Iron Rule:** Mock the COMPLETE data structure as it exists in reality, not just fields your immediate test uses.
 
 **The fix:**
-```typescript
+```csharp
 // ✅ GOOD: Mirror real API completeness
-const mockResponse = {
-  status: 'success',
-  data: { userId: '123', name: 'Alice' },
-  metadata: { requestId: 'req-789', timestamp: 1234567890 }
-  // All fields real API returns
+var mockResponse = new ApiResponse
+{
+    Status = "success",
+    Data = new UserData { UserId = "123", Name = "Alice" },
+    Metadata = new ResponseMetadata { RequestId = "req-789", Timestamp = 1234567890 }
+    // All fields real API returns
 };
 ```
 
