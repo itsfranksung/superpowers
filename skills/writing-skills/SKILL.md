@@ -326,9 +326,9 @@ See @graphviz-conventions.dot for graphviz style rules.
 **One excellent example beats many mediocre ones**
 
 Choose most relevant language:
-- Testing techniques → TypeScript/JavaScript
-- System debugging → Shell/Python
-- Data processing → Python
+- Testing techniques → Java / JUnit 5 / Mockito
+- System debugging → Shell / Java
+- Data processing → Java / Spring Data
 
 **Good example:**
 - Complete and runnable

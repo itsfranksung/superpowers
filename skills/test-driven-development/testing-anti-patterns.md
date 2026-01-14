@@ -21,12 +21,14 @@ Tests must verify real behavior, not mock behavior. Mocks are a means to isolate
 ## Anti-Pattern 1: Testing Mock Behavior
 
 **The violation:**
-```typescript
+```java
 // ❌ BAD: Testing that the mock exists
-test('renders sidebar', () => {
-  render(<Page />);
-  expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
-});
+@Test
+void rendersSidebar() {
+    when(sidebarService.getSidebar()).thenReturn(mockSidebar);
+    var page = pageService.renderPage();
+    assertThat(page.getSidebar()).isNotNull(); // Testing mock, not behavior!
+}
 ```
 
 **Why this is wrong:**
@@ -37,12 +39,14 @@ test('renders sidebar', () => {
 **your human partner's correction:** "Are we testing the behavior of a mock?"
 
 **The fix:**
-```typescript
+```java
 // ✅ GOOD: Test real component or don't mock it
-test('renders sidebar', () => {
-  render(<Page />);  // Don't mock sidebar
-  expect(screen.getByRole('navigation')).toBeInTheDocument();
-});
+@Test
+void rendersSidebar() {
+    // Don't mock sidebar - use @SpringBootTest with real beans
+    var page = pageService.renderPage();
+    assertThat(page.getNavigation()).isNotEmpty();
+}
 
 // OR if sidebar must be mocked for isolation:
 // Don't assert on the mock - test Page's behavior with sidebar present
@@ -63,17 +67,22 @@ BEFORE asserting on any mock element:
 ## Anti-Pattern 2: Test-Only Methods in Production
 
 **The violation:**
-```typescript
+```java
 // ❌ BAD: destroy() only used in tests
-class Session {
-  async destroy() {  // Looks like production API!
-    await this._workspaceManager?.destroyWorkspace(this.id);
-    // ... cleanup
-  }
+public class Session {
+    public void destroy() {  // Looks like production API!
+        if (workspaceManager != null) {
+            workspaceManager.destroyWorkspace(this.id);
+        }
+        // ... cleanup
+    }
 }
 
 // In tests
-afterEach(() => session.destroy());
+@AfterEach
+void tearDown() {
+    session.destroy();
+}
 ```
 
 **Why this is wrong:**
@@ -83,20 +92,25 @@ afterEach(() => session.destroy());
 - Confuses object lifecycle with entity lifecycle
 
 **The fix:**
-```typescript
+```java
 // ✅ GOOD: Test utilities handle test cleanup
 // Session has no destroy() - it's stateless in production
 
-// In test-utils/
-export async function cleanupSession(session: Session) {
-  const workspace = session.getWorkspaceInfo();
-  if (workspace) {
-    await workspaceManager.destroyWorkspace(workspace.id);
-  }
+// In src/test/java/.../TestUtils.java
+public class SessionTestHelper {
+    public static void cleanupSession(Session session, WorkspaceManager workspaceManager) {
+        var workspace = session.getWorkspaceInfo();
+        if (workspace != null) {
+            workspaceManager.destroyWorkspace(workspace.getId());
+        }
+    }
 }
 
 // In tests
-afterEach(() => cleanupSession(session));
+@AfterEach
+void tearDown() {
+    SessionTestHelper.cleanupSession(session, workspaceManager);
+}
 ```
 
 ### Gate Function
@@ -118,17 +132,16 @@ BEFORE adding any method to production class:
 ## Anti-Pattern 3: Mocking Without Understanding
 
 **The violation:**
-```typescript
+```java
 // ❌ BAD: Mock breaks test logic
-test('detects duplicate server', () => {
-  // Mock prevents config write that test depends on!
-  vi.mock('ToolCatalog', () => ({
-    discoverAndCacheTools: vi.fn().mockResolvedValue(undefined)
-  }));
+@Test
+void detectsDuplicateServer() {
+    // Mock prevents config write that test depends on!
+    when(toolCatalog.discoverAndCacheTools()).thenReturn(null);
 
-  await addServer(config);
-  await addServer(config);  // Should throw - but won't!
-});
+    serverService.addServer(config);
+    serverService.addServer(config);  // Should throw - but won't!
+}
 ```
 
 **Why this is wrong:**
@@ -137,15 +150,17 @@ test('detects duplicate server', () => {
 - Test passes for wrong reason or fails mysteriously
 
 **The fix:**
-```typescript
+```java
 // ✅ GOOD: Mock at correct level
-test('detects duplicate server', () => {
-  // Mock the slow part, preserve behavior test needs
-  vi.mock('MCPServerManager'); // Just mock slow server startup
+@Test
+void detectsDuplicateServer() {
+    // Mock the slow part, preserve behavior test needs
+    when(mcpServerManager.startServer(any())).thenReturn(mockServer);
 
-  await addServer(config);  // Config written
-  await addServer(config);  // Duplicate detected ✓
-});
+    serverService.addServer(config);  // Config written
+    assertThrows(DuplicateServerException.class, 
+        () -> serverService.addServer(config));  // Duplicate detected ✓
+}
 ```
 
 ### Gate Function
@@ -177,15 +192,15 @@ BEFORE mocking any method:
 ## Anti-Pattern 4: Incomplete Mocks
 
 **The violation:**
-```typescript
+```java
 // ❌ BAD: Partial mock - only fields you think you need
-const mockResponse = {
-  status: 'success',
-  data: { userId: '123', name: 'Alice' }
-  // Missing: metadata that downstream code uses
-};
+var mockResponse = ApiResponse.builder()
+    .status("success")
+    .data(UserData.builder().userId("123").name("Alice").build())
+    // Missing: metadata that downstream code uses
+    .build();
 
-// Later: breaks when code accesses response.metadata.requestId
+// Later: breaks when code accesses response.getMetadata().getRequestId()
 ```
 
 **Why this is wrong:**
@@ -197,14 +212,17 @@ const mockResponse = {
 **The Iron Rule:** Mock the COMPLETE data structure as it exists in reality, not just fields your immediate test uses.
 
 **The fix:**
-```typescript
+```java
 // ✅ GOOD: Mirror real API completeness
-const mockResponse = {
-  status: 'success',
-  data: { userId: '123', name: 'Alice' },
-  metadata: { requestId: 'req-789', timestamp: 1234567890 }
-  // All fields real API returns
-};
+var mockResponse = ApiResponse.builder()
+    .status("success")
+    .data(UserData.builder().userId("123").name("Alice").build())
+    .metadata(ResponseMetadata.builder()
+        .requestId("req-789")
+        .timestamp(1234567890L)
+        .build())
+    // All fields real API returns
+    .build();
 ```
 
 ### Gate Function

@@ -38,12 +38,12 @@ Error: git init failed in /Users/jesse/project/packages/core
 
 ### 2. Find Immediate Cause
 **What code directly causes this?**
-```typescript
-await execFileAsync('git', ['init'], { cwd: projectDir });
+```java
+processBuilder.command("git", "init").directory(new File(projectDir)).start();
 ```
 
 ### 3. Ask: What Called This?
-```typescript
+```java
 WorktreeManager.createSessionWorktree(projectDir, sessionId)
   → called by Session.initializeWorkspace()
   → called by Session.create()
@@ -58,27 +58,29 @@ WorktreeManager.createSessionWorktree(projectDir, sessionId)
 
 ### 5. Find Original Trigger
 **Where did empty string come from?**
-```typescript
-const context = setupCoreTest(); // Returns { tempDir: '' }
-Project.create('name', context.tempDir); // Accessed before beforeEach!
+```java
+var context = setupCoreTest(); // Returns TestContext with tempDir = ""
+Project.create("name", context.getTempDir()); // Accessed before @BeforeEach!
 ```
 
 ## Adding Stack Traces
 
 When you can't trace manually, add instrumentation:
 
-```typescript
+```java
 // Before the problematic operation
-async function gitInit(directory: string) {
-  const stack = new Error().stack;
-  console.error('DEBUG git init:', {
-    directory,
-    cwd: process.cwd(),
-    nodeEnv: process.env.NODE_ENV,
-    stack,
-  });
+public void gitInit(String directory) throws Exception {
+    var stackTrace = Arrays.toString(Thread.currentThread().getStackTrace());
+    System.err.printf("DEBUG git init: directory=%s, cwd=%s, profile=%s%n",
+        directory,
+        System.getProperty("user.dir"),
+        System.getProperty("spring.profiles.active"));
+    System.err.println(stackTrace);
 
-  await execFileAsync('git', ['init'], { cwd: directory });
+    new ProcessBuilder("git", "init")
+        .directory(new File(directory))
+        .start()
+        .waitFor();
 }
 ```
 
@@ -86,7 +88,7 @@ async function gitInit(directory: string) {
 
 **Run and capture:**
 ```bash
-npm test 2>&1 | grep 'DEBUG git init'
+mvn test 2>&1 | grep 'DEBUG git init'
 ```
 
 **Analyze stack traces:**

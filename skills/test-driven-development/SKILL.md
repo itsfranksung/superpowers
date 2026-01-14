@@ -73,34 +73,37 @@ digraph tdd_cycle {
 Write one minimal test showing what should happen.
 
 <Good>
-```typescript
-test('retries failed operations 3 times', async () => {
-  let attempts = 0;
-  const operation = () => {
-    attempts++;
-    if (attempts < 3) throw new Error('fail');
-    return 'success';
-  };
+```java
+@Test
+void retryOperation_whenFailsTwice_retriesThreeTimes() throws Exception {
+    AtomicInteger attempts = new AtomicInteger(0);
+    Supplier<String> operation = () -> {
+        attempts.incrementAndGet();
+        if (attempts.get() < 3) throw new RuntimeException("fail");
+        return "success";
+    };
 
-  const result = await retryOperation(operation);
+    String result = retryOperation(operation);
 
-  expect(result).toBe('success');
-  expect(attempts).toBe(3);
-});
+    assertThat(result).isEqualTo("success");
+    assertThat(attempts.get()).isEqualTo(3);
+}
 ```
 Clear name, tests real behavior, one thing
 </Good>
 
 <Bad>
-```typescript
-test('retry works', async () => {
-  const mock = jest.fn()
-    .mockRejectedValueOnce(new Error())
-    .mockRejectedValueOnce(new Error())
-    .mockResolvedValueOnce('success');
-  await retryOperation(mock);
-  expect(mock).toHaveBeenCalledTimes(3);
-});
+```java
+@Test
+void retryWorks() throws Exception {
+    Operation mockOperation = mock(Operation.class);
+    when(mockOperation.execute())
+        .thenThrow(new RuntimeException())
+        .thenThrow(new RuntimeException())
+        .thenReturn("success");
+    retryOperation(mockOperation::execute);
+    verify(mockOperation, times(3)).execute();
+}
 ```
 Vague name, tests mock not code
 </Bad>
@@ -115,7 +118,7 @@ Vague name, tests mock not code
 **MANDATORY. Never skip.**
 
 ```bash
-npm test path/to/test.test.ts
+mvn test -Dtest=RetryOperationTest
 ```
 
 Confirm:
@@ -132,32 +135,30 @@ Confirm:
 Write simplest code to pass the test.
 
 <Good>
-```typescript
-async function retryOperation<T>(fn: () => Promise<T>): Promise<T> {
-  for (let i = 0; i < 3; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (i === 2) throw e;
+```java
+public <T> T retryOperation(Supplier<T> fn) {
+    for (int i = 0; i < 3; i++) {
+        try {
+            return fn.get();
+        } catch (Exception e) {
+            if (i == 2) throw e;
+        }
     }
-  }
-  throw new Error('unreachable');
+    throw new IllegalStateException("unreachable");
 }
 ```
 Just enough to pass
 </Good>
 
 <Bad>
-```typescript
-async function retryOperation<T>(
-  fn: () => Promise<T>,
-  options?: {
-    maxRetries?: number;
-    backoff?: 'linear' | 'exponential';
-    onRetry?: (attempt: number) => void;
-  }
-): Promise<T> {
-  // YAGNI
+```java
+public <T> T retryOperation(
+        Supplier<T> fn,
+        RetryOptions options) {
+    // YAGNI - options include:
+    // int maxRetries
+    // BackoffStrategy backoff (LINEAR, EXPONENTIAL)
+    // Consumer<Integer> onRetry
 }
 ```
 Over-engineered
@@ -170,7 +171,7 @@ Don't add features, refactor other code, or "improve" beyond the test.
 **MANDATORY.**
 
 ```bash
-npm test path/to/test.test.ts
+mvn test -Dtest=RetryOperationTest
 ```
 
 Confirm:
@@ -292,32 +293,33 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 **Bug:** Empty email accepted
 
 **RED**
-```typescript
-test('rejects empty email', async () => {
-  const result = await submitForm({ email: '' });
-  expect(result.error).toBe('Email required');
-});
+```java
+@Test
+void submitForm_withEmptyEmail_returnsError() {
+    FormResult result = formService.submitForm(new FormData(""));
+    assertThat(result.getError()).isEqualTo("Email required");
+}
 ```
 
 **Verify RED**
 ```bash
-$ npm test
-FAIL: expected 'Email required', got undefined
+$ mvn test
+FAIL: expected "Email required", but was null
 ```
 
 **GREEN**
-```typescript
-function submitForm(data: FormData) {
-  if (!data.email?.trim()) {
-    return { error: 'Email required' };
-  }
-  // ...
+```java
+public FormResult submitForm(FormData data) {
+    if (data.getEmail() == null || data.getEmail().isBlank()) {
+        return new FormResult("Email required");
+    }
+    // ...
 }
 ```
 
 **Verify GREEN**
 ```bash
-$ npm test
+$ mvn test
 PASS
 ```
 

@@ -22,65 +22,65 @@ Different layers catch different cases:
 ### Layer 1: Entry Point Validation
 **Purpose:** Reject obviously invalid input at API boundary
 
-```typescript
-function createProject(name: string, workingDirectory: string) {
-  if (!workingDirectory || workingDirectory.trim() === '') {
-    throw new Error('workingDirectory cannot be empty');
-  }
-  if (!existsSync(workingDirectory)) {
-    throw new Error(`workingDirectory does not exist: ${workingDirectory}`);
-  }
-  if (!statSync(workingDirectory).isDirectory()) {
-    throw new Error(`workingDirectory is not a directory: ${workingDirectory}`);
-  }
-  // ... proceed
+```java
+public void createProject(String name, String workingDirectory) {
+    if (workingDirectory == null || workingDirectory.isBlank()) {
+        throw new IllegalArgumentException("workingDirectory cannot be empty");
+    }
+    Path path = Path.of(workingDirectory);
+    if (!Files.exists(path)) {
+        throw new IllegalArgumentException("workingDirectory does not exist: " + workingDirectory);
+    }
+    if (!Files.isDirectory(path)) {
+        throw new IllegalArgumentException("workingDirectory is not a directory: " + workingDirectory);
+    }
+    // ... proceed
 }
 ```
 
 ### Layer 2: Business Logic Validation
 **Purpose:** Ensure data makes sense for this operation
 
-```typescript
-function initializeWorkspace(projectDir: string, sessionId: string) {
-  if (!projectDir) {
-    throw new Error('projectDir required for workspace initialization');
-  }
-  // ... proceed
+```java
+public void initializeWorkspace(String projectDir, String sessionId) {
+    if (projectDir == null || projectDir.isEmpty()) {
+        throw new IllegalArgumentException("projectDir required for workspace initialization");
+    }
+    // ... proceed
 }
 ```
 
 ### Layer 3: Environment Guards
 **Purpose:** Prevent dangerous operations in specific contexts
 
-```typescript
-async function gitInit(directory: string) {
-  // In tests, refuse git init outside temp directories
-  if (process.env.NODE_ENV === 'test') {
-    const normalized = normalize(resolve(directory));
-    const tmpDir = normalize(resolve(tmpdir()));
+```java
+public void gitInit(String directory) throws Exception {
+    // In tests, refuse git init outside temp directories
+    String profile = System.getProperty("spring.profiles.active", "");
+    if (profile.contains("test")) {
+        Path normalized = Path.of(directory).toAbsolutePath().normalize();
+        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
 
-    if (!normalized.startsWith(tmpDir)) {
-      throw new Error(
-        `Refusing git init outside temp dir during tests: ${directory}`
-      );
+        if (!normalized.startsWith(tmpDir)) {
+            throw new IllegalStateException(
+                "Refusing git init outside temp dir during tests: " + directory);
+        }
     }
-  }
-  // ... proceed
+    // ... proceed
 }
 ```
 
 ### Layer 4: Debug Instrumentation
 **Purpose:** Capture context for forensics
 
-```typescript
-async function gitInit(directory: string) {
-  const stack = new Error().stack;
-  logger.debug('About to git init', {
-    directory,
-    cwd: process.cwd(),
-    stack,
-  });
-  // ... proceed
+```java
+public void gitInit(String directory) {
+    var stackTrace = Arrays.toString(Thread.currentThread().getStackTrace());
+    log.debug("About to git init: directory={}, cwd={}", 
+        directory, 
+        System.getProperty("user.dir"));
+    log.trace("Stack trace: {}", stackTrace);
+    // ... proceed
 }
 ```
 

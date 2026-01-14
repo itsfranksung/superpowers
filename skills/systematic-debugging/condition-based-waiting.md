@@ -33,53 +33,59 @@ digraph when_to_use {
 
 ## Core Pattern
 
-```typescript
+```java
 // ❌ BEFORE: Guessing at timing
-await new Promise(r => setTimeout(r, 50));
-const result = getResult();
-expect(result).toBeDefined();
+Thread.sleep(50);
+var result = getResult();
+assertThat(result).isNotNull();
 
-// ✅ AFTER: Waiting for condition
-await waitFor(() => getResult() !== undefined);
-const result = getResult();
-expect(result).toBeDefined();
+// ✅ AFTER: Waiting for condition (using Awaitility)
+await().atMost(5, SECONDS).until(() -> getResult() != null);
+var result = getResult();
+assertThat(result).isNotNull();
 ```
 
 ## Quick Patterns
 
 | Scenario | Pattern |
 |----------|---------|
-| Wait for event | `waitFor(() => events.find(e => e.type === 'DONE'))` |
-| Wait for state | `waitFor(() => machine.state === 'ready')` |
-| Wait for count | `waitFor(() => items.length >= 5)` |
-| Wait for file | `waitFor(() => fs.existsSync(path))` |
-| Complex condition | `waitFor(() => obj.ready && obj.value > 10)` |
+| Wait for event | `await().until(() -> events.stream().anyMatch(e -> e.getType().equals("DONE")))` |
+| Wait for state | `await().until(() -> machine.getState().equals("ready"))` |
+| Wait for count | `await().until(() -> items.size() >= 5)` |
+| Wait for file | `await().until(() -> Files.exists(Path.of(path)))` |
+| Complex condition | `await().until(() -> obj.isReady() && obj.getValue() > 10)` |
 
 ## Implementation
 
 Generic polling function:
-```typescript
-async function waitFor<T>(
-  condition: () => T | undefined | null | false,
-  description: string,
-  timeoutMs = 5000
-): Promise<T> {
-  const startTime = Date.now();
+```java
+public static <T> T waitFor(
+        Supplier<T> condition,
+        String description,
+        Duration timeout) {
+    long startTime = System.currentTimeMillis();
+    long timeoutMs = timeout.toMillis();
 
-  while (true) {
-    const result = condition();
-    if (result) return result;
+    while (true) {
+        T result = condition.get();
+        if (result != null) return result;
 
-    if (Date.now() - startTime > timeoutMs) {
-      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+        if (System.currentTimeMillis() - startTime > timeoutMs) {
+            throw new TimeoutException(
+                String.format("Timeout waiting for %s after %dms", description, timeoutMs));
+        }
+
+        Thread.sleep(10); // Poll every 10ms
     }
-
-    await new Promise(r => setTimeout(r, 10)); // Poll every 10ms
-  }
 }
+
+// Or simply use Awaitility:
+await().atMost(5, SECONDS)
+       .pollInterval(10, MILLISECONDS)
+       .until(condition);
 ```
 
-See `condition-based-waiting-example.ts` in this directory for complete implementation with domain-specific helpers (`waitForEvent`, `waitForEventCount`, `waitForEventMatch`) from actual debugging session.
+See `ConditionBasedWaitingExample.java` in this directory for complete implementation with domain-specific helpers (`waitForEvent`, `waitForEventCount`, `waitForEventMatch`) from actual debugging session. For Spring Boot tests, consider using `Awaitility` library.
 
 ## Common Mistakes
 
@@ -94,10 +100,10 @@ See `condition-based-waiting-example.ts` in this directory for complete implemen
 
 ## When Arbitrary Timeout IS Correct
 
-```typescript
+```java
 // Tool ticks every 100ms - need 2 ticks to verify partial output
-await waitForEvent(manager, 'TOOL_STARTED'); // First: wait for condition
-await new Promise(r => setTimeout(r, 200));   // Then: wait for timed behavior
+await().until(() -> manager.hasEvent("TOOL_STARTED")); // First: wait for condition
+Thread.sleep(200);   // Then: wait for timed behavior
 // 200ms = 2 ticks at 100ms intervals - documented and justified
 ```
 

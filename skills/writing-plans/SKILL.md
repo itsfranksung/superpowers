@@ -39,7 +39,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Architecture:** [2-3 sentences about approach]
 
-**Tech Stack:** [Key technologies/libraries]
+**Tech Stack:** JDK17 / Spring Boot 3.2.4 / MariaDB / Spring JPA / Activiti BPMN 8.0 / JUnit 5 / Mockito / H2 (Test) / Cucumber
 
 ---
 ```
@@ -50,39 +50,42 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 ### Task N: [Component Name]
 
 **Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
+- Create: `src/main/java/com/example/path/File.java`
+- Modify: `src/main/java/com/example/path/Existing.java:123-145`
+- Test: `src/test/java/com/example/path/FileTest.java`
 
 **Step 1: Write the failing test**
 
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
+```java
+@Test
+void specificBehavior_whenCalled_returnsExpected() {
+    var result = sut.function(input);
+    assertThat(result).isEqualTo(expected);
+}
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
+Run: `mvn test -Dtest=FileTest#specificBehavior_whenCalled_returnsExpected`
+Expected: FAIL with "cannot find symbol"
 
 **Step 3: Write minimal implementation**
 
-```python
-def function(input):
-    return expected
+```java
+public Result function(Input input) {
+    return expected;
+}
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/path/test.py::test_name -v`
+Run: `mvn test -Dtest=FileTest#specificBehavior_whenCalled_returnsExpected`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add tests/path/test.py src/path/file.py
+git add src/test/java/com/example/path/FileTest.java src/main/java/com/example/path/File.java
 git commit -m "feat: add specific feature"
 ```
 ```

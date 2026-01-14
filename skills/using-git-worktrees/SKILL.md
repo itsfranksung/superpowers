@@ -115,6 +115,12 @@ if [ -f pyproject.toml ]; then poetry install; fi
 
 # Go
 if [ -f go.mod ]; then go mod download; fi
+
+# Java/Maven
+if [ -f pom.xml ]; then mvn clean install -DskipTests; fi
+
+# Java/Gradle
+if [ -f build.gradle ]; then ./gradlew build -x test; fi
 ```
 
 ### 4. Verify Clean Baseline
@@ -127,6 +133,8 @@ npm test
 cargo test
 pytest
 go test ./...
+mvn test           # Java/Maven
+./gradlew test     # Java/Gradle
 ```
 
 **If tests fail:** Report failures, ask whether to proceed or investigate.
