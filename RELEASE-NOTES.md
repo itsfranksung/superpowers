@@ -80,7 +80,7 @@ New prompt templates in `skills/subagent-driven-development/`:
 - `defense-in-depth.md` - Add validation at multiple layers
 - `condition-based-waiting.md` - Replace arbitrary timeouts with condition polling
 - `find-polluter.sh` - Bisection script to find which test creates pollution
-- `condition-based-waiting-example.ts` - Complete implementation from real debugging session
+- `condition-based-waiting-example.cs` - Complete implementation from real debugging session
 
 **Testing anti-patterns reference**
 
